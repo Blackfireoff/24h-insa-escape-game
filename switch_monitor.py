@@ -13,6 +13,17 @@ SOUND_PATH = "success.mp3"
 # État des ports suivis
 previous_up_ports = set()
 
+import pygame
+
+def play_success_sound():
+    try:
+        pygame.mixer.init()
+        pygame.mixer.music.load(SOUND_PATH)
+        pygame.mixer.music.play()
+    except Exception as e:
+        print(f"[ERREUR] Lecture du son échouée : {e}")
+
+
 def login_telnet():
     try:
         tn = telnetlib.Telnet(HOST, timeout=10)
@@ -69,7 +80,7 @@ def main():
                 if not already_played:
                     print("✅ Tous les ports sont connectés ! 🎉")
                     for i in range(3):
-                        playsound(SOUND_PATH)
+                        play_success_sound(SOUND_PATH)
                     already_played = True
             else:
                 already_played = False
