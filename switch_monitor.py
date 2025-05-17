@@ -16,8 +16,6 @@ previous_up_ports = set()
 def login_telnet():
     try:
         tn = telnetlib.Telnet(HOST, timeout=10)
-        tn.read_until(b"Username:")
-        tn.write(USERNAME.encode("ascii") + b"\n")
         tn.read_until(b"Password:")
         tn.write(PASSWORD.encode("ascii") + b"\n")
         tn.write(b"enable\n")
