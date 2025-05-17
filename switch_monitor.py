@@ -82,6 +82,7 @@ def main():
                     print("✅ Tous les ports sont connectés ! 🎉")
                     for i in range(3):
                         play_success_sound()
+                        time.sleep(2)
                     already_played = True
             else:
                 already_played = False
