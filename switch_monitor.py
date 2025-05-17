@@ -2,7 +2,7 @@ import telnetlib
 import time
 from playsound import playsound
 
-# Configuration
+# Config
 HOST = "192.168.0.1"
 USERNAME = "admin"
 PASSWORD = "R00tR00t"
@@ -10,57 +10,82 @@ ENABLE_PASSWORD = "adminenable"
 PORTS_TO_CHECK = [4, 6, 10, 12, 14, 17, 20, 24]
 SOUND_PATH = "success.wav"
 
-def is_all_ports_up(output):
+# État des ports suivis
+previous_up_ports = set()
+
+def login_telnet():
+    try:
+        tn = telnetlib.Telnet(HOST, timeout=10)
+        tn.read_until(b"Username:")
+        tn.write(USERNAME.encode("ascii") + b"\n")
+        tn.read_until(b"Password:")
+        tn.write(PASSWORD.encode("ascii") + b"\n")
+        tn.write(b"enable\n")
+        tn.read_until(b"Password:")
+        tn.write(ENABLE_PASSWORD.encode("ascii") + b"\n")
+        tn.write(b"terminal length 0\n")
+        return tn
+    except Exception as e:
+        print(f"[ERREUR] Connexion Telnet échouée : {e}")
+        return None
+
+def get_ports_status(tn):
+    tn.write(b"show interfaces status\n")
+    time.sleep(1)
+    output = tn.read_very_eager().decode("utf-8")
+    return output
+
+def parse_ports(output):
     up_ports = set()
     for line in output.splitlines():
         for port in PORTS_TO_CHECK:
-            port_name = f"FastEthernet0/{port}"
-            if port_name in line and "connected" in line:
+            if f"Fa0/{port}" in line and "connected" in line:
                 up_ports.add(port)
-    return all(port in up_ports for port in PORTS_TO_CHECK)
-
-def connect_and_check():
-    try:
-        tn = telnetlib.Telnet(HOST, timeout=5)
-
-        tn.read_until(b"Username:")
-        tn.write(USERNAME.encode('ascii') + b"\n")
-
-        tn.read_until(b"Password:")
-        tn.write(PASSWORD.encode('ascii') + b"\n")
-
-        tn.write(b"enable\n")
-        tn.read_until(b"Password:")
-        tn.write(ENABLE_PASSWORD.encode('ascii') + b"\n")
-
-        tn.write(b"terminal length 0\n")
-        tn.write(b"show interfaces status\n")
-        tn.write(b"exit\n")
-
-        output = tn.read_all().decode("utf-8")
-        tn.close()
-
-        return output
-
-    except Exception as e:
-        print(f"Erreur de connexion : {e}")
-        return ""
+    return up_ports
 
 def main():
-    print("🔍 Surveillance des ports en cours...")
-    already_triggered = False
+    global previous_up_ports
+    print("[INFO] Connexion au switch...")
+    tn = login_telnet()
+
+    if not tn:
+        return
+
+    print("[INFO] Surveillance des ports : ", PORTS_TO_CHECK)
+    already_played = False
 
     while True:
-        output = connect_and_check()
-        if output:
-            if is_all_ports_up(output):
-                if not already_triggered:
-                    print("✅ Tous les ports sont connectés !")
+        try:
+            output = get_ports_status(tn)
+            current_up_ports = parse_ports(output)
+
+            for port in PORTS_TO_CHECK:
+                if port in current_up_ports and port not in previous_up_ports:
+                    print(f"[+] Port Fa0/{port} connecté !")
+                elif port not in current_up_ports and port in previous_up_ports:
+                    print(f"[-] Port Fa0/{port} déconnecté.")
+
+            previous_up_ports = current_up_ports
+
+            if all(port in current_up_ports for port in PORTS_TO_CHECK):
+                if not already_played:
+                    print("✅ Tous les ports sont connectés ! 🎉")
                     playsound(SOUND_PATH)
-                    already_triggered = True
+                    already_played = True
             else:
-                already_triggered = False
-        time.sleep(5)  # pause entre chaque check
+                already_played = False
+
+            time.sleep(5)
+
+        except EOFError:
+            print("[ERREUR] Connexion Telnet interrompue. Reconnexion...")
+            tn = login_telnet()
+
+        except Exception as e:
+            print(f"[ERREUR] Exception dans la boucle principale : {e}")
+            break
+
+    tn.close()
 
 if __name__ == "__main__":
     main()
