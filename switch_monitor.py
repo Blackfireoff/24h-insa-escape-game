@@ -8,7 +8,7 @@ USERNAME = "admin"
 PASSWORD = "R00tR00t"
 ENABLE_PASSWORD = "adminenable"
 PORTS_TO_CHECK = [4, 6, 10, 12, 14, 17, 20, 24]
-SOUND_PATH = "success.wav"
+SOUND_PATH = "success.mp3"
 
 # État des ports suivis
 previous_up_ports = set()
@@ -68,7 +68,8 @@ def main():
             if all(port in current_up_ports for port in PORTS_TO_CHECK):
                 if not already_played:
                     print("✅ Tous les ports sont connectés ! 🎉")
-                    playsound(SOUND_PATH)
+                    for i in range(3):
+                        playsound(SOUND_PATH)
                     already_played = True
             else:
                 already_played = False
