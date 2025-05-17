@@ -15,13 +15,14 @@ previous_up_ports = set()
 
 import pygame
 
+import subprocess
+
 def play_success_sound():
     try:
-        pygame.mixer.init()
-        pygame.mixer.music.load(SOUND_PATH)
-        pygame.mixer.music.play()
+        subprocess.run(["mpg123", "-a", "hw:1,0", "success.mp3"])
     except Exception as e:
-        print(f"[ERREUR] Lecture du son échouée : {e}")
+        print(f"[ERREUR] Lecture MP3 échouée : {e}")
+
 
 
 def login_telnet():
