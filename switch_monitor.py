@@ -1,29 +1,20 @@
 import telnetlib
 import time
-from playsound import playsound
+import subprocess
 
 # Config
 HOST = "192.168.0.1"
-USERNAME = "admin"
 PASSWORD = "R00tR00t"
 ENABLE_PASSWORD = "adminenable"
 PORTS_TO_CHECK = [4, 6, 10, 12, 14, 17, 20, 24]
 SOUND_PATH = "success.mp3"
-
-# État des ports suivis
-previous_up_ports = set()
-
-import pygame
-
-import subprocess
+AUDIO_DEVICE = "hw:1,0"  # à adapter selon ta sortie HDMI/JACK
 
 def play_success_sound():
     try:
-        subprocess.run(["mpg123", "-a", "hw:1,0", "success.mp3"])
+        subprocess.run(["mpg123", "-a", AUDIO_DEVICE, SOUND_PATH])
     except Exception as e:
         print(f"[ERREUR] Lecture MP3 échouée : {e}")
-
-
 
 def login_telnet():
     try:
@@ -54,45 +45,45 @@ def parse_ports(output):
     return up_ports
 
 def main():
-    global previous_up_ports
     print("[INFO] Connexion au switch...")
     tn = login_telnet()
-
     if not tn:
         return
 
-    print("[INFO] Surveillance des ports : ", PORTS_TO_CHECK)
-    already_played = False
+    print("[INFO] Surveillance cyclique des ports : ", PORTS_TO_CHECK)
+    alert_ready = True
 
     while True:
         try:
             output = get_ports_status(tn)
             current_up_ports = parse_ports(output)
 
+            # Affichage des changements
             for port in PORTS_TO_CHECK:
-                if port in current_up_ports and port not in previous_up_ports:
-                    print(f"[+] Port Fa0/{port} connecté !")
-                elif port not in current_up_ports and port in previous_up_ports:
-                    print(f"[-] Port Fa0/{port} déconnecté.")
+                if port in current_up_ports:
+                    print(f"[+] Port Fa0/{port} : connecté")
+                else:
+                    print(f"[-] Port Fa0/{port} : déconnecté")
 
-            previous_up_ports = current_up_ports
+            all_connected = all(port in current_up_ports for port in PORTS_TO_CHECK)
+            all_disconnected = all(port not in current_up_ports for port in PORTS_TO_CHECK)
 
-            if all(port in current_up_ports for port in PORTS_TO_CHECK):
-                if not already_played:
-                    print("✅ Tous les ports sont connectés ! 🎉")
-                    for i in range(3):
-                        play_success_sound()
-                        time.sleep(2)
-                    already_played = True
-            else:
-                already_played = False
+            if all_connected and alert_ready:
+                print("✅ Tous les ports sont connectés ! 🎉")
+                for i in range(3):
+                    play_success_sound()
+                    time.sleep(2)
+                alert_ready = False  # On attend qu'ils soient tous débranchés pour rejouer
+
+            elif all_disconnected and not alert_ready:
+                print("🔁 Tous les ports ont été déconnectés, réinitialisation de l'alerte")
+                alert_ready = True
 
             time.sleep(5)
 
         except EOFError:
             print("[ERREUR] Connexion Telnet interrompue. Reconnexion...")
             tn = login_telnet()
-
         except Exception as e:
             print(f"[ERREUR] Exception dans la boucle principale : {e}")
             break
